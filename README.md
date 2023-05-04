@@ -8,7 +8,7 @@ To use this script, follow the steps below:
 
 ### Clone this repository to your local machine:
 
-`git clone https://github.com/your-username/modify-ufw-firewall.git`
+`git clone https://github.com/bdorr1105/modify-ufw-firewall.git`
 
 ### Change to the project directory:
 
