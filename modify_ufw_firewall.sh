@@ -1,5 +1,7 @@
 #!/bin/bash
 
+file_path="/etc/ufw/before.rules"
+
 # Checking for sudo or root privileges
 if [[ $(id -u) -ne 0 ]]; then
   echo "Error: This script requires sudo or root privileges to run."
@@ -7,7 +9,31 @@ if [[ $(id -u) -ne 0 ]]; then
   exit 1
 fi
 
-# Function to perform the firewall action
+modify_before_rules() {
+    action=$1
+    backup_file_path="/etc/ufw/before.rules.bak"
+    temp_file=$(mktemp)
+
+    # Modify the lines containing --icmp-type
+    sed -i -E "/--icmp-type/ s/-j (ACCEPT|DROP|REJECT)/-j $action/" "$file_path"
+
+    # Check if the file was modified
+    if ! diff -B -w -q "$file_path" "$backup_file_path" >/dev/null 2>&1; then
+        # Replace the original file with the modified file
+        cp "$file_path" "$backup_file_path"
+        echo "Backup created: $backup_file_path"
+        echo "Modified $file_path"
+    else
+        echo "No changes made to $file_path"
+    fi
+}
+
+icmp_action() {
+    rule_action=$1
+    modify_before_rules "$rule_action"
+    echo "ICMP rule action changed to $rule_action."
+}
+
 perform_firewall_action() {
     action=$1
 
@@ -33,15 +59,43 @@ perform_firewall_action() {
 
         echo
         read -p "Enter the protocol (tcp/udp): " protocol
+        
+        if [ "$protocol" = "icmp" ]; then
+            # If ICMP protocol is selected, skip the destination port prompt
+            destination_port=""
+        fi
+
         echo
         read -p "Enter the action (allow/deny/reject): " rule_action
 
         # Add the firewall rule
-        ufw_rule="ufw $rule_action from $source_address to any port $destination_port proto $protocol"
-        sudo $ufw_rule
-        add_status=$?
+        if [ "$protocol" != "icmp" ]; then
+            ufw_rule="ufw $rule_action from $source_address to any port $destination_port proto $protocol"
+            sudo $ufw_rule
+            add_status=$?
+        else
+            case $rule_action in
+                "allow")
+                    icmp_action "ACCEPT"
+                    add_status=0
+                    ;;
+                "deny")
+                    icmp_action "DROP"
+                    add_status=0
+                    ;;
+                "reject")
+                    icmp_action "REJECT"
+                    add_status=0
+                    ;;
+                *)
+                    echo "Invalid rule action. Please try again."
+                    return
+                    ;;
+            esac
+        fi
+
         if [ $add_status -eq 0 ]; then
-            echo "Firewall rule added successfully!"
+            echo "Firewall rule added successfully! Make sure you reload UFW from the main menu when done modifying firewall rules!"
             echo
             read -p "Do you want to add another firewall rule? (y/n): " add_another
             if [ "$add_another" = "y" ]; then
@@ -58,11 +112,11 @@ perform_firewall_action() {
         read -p "Enter the rule number to delete: " rule_number
         echo
 
-        # Delete the firewall rule
+                # Delete the firewall rule
         ufw delete $rule_number
         delete_status=$?
         if [ $delete_status -eq 0 ]; then
-            echo "Firewall rule deleted successfully!"
+            echo "Firewall rule deleted successfully! Make sure you reload UFW from the main menu when done modifying firewall rules!"
             
             # Prompt to delete another rule
             echo
@@ -72,6 +126,7 @@ perform_firewall_action() {
             if [ "$delete_another" = "y" ]; then
                 perform_firewall_action "delete"
             fi
+
         else
             echo "Failed to delete firewall rule. Please check the UFW configuration."
         fi
@@ -83,6 +138,9 @@ perform_firewall_action() {
         return
     fi
 }
+
+#Clear the screen
+clear
 
 # UFW ASCII art
 echo -e "\e[34m
@@ -140,10 +198,11 @@ echo "Selection Menu:"
 echo
 echo "1. Check the status of UFW"
 echo "2. Modify firewall rules"
-echo "3. Reload UFW"
-echo "4. Disable UFW"
-echo "5. Enable UFW"
-echo "6. Exit"
+echo "3. Allow or Deny ICMP echo requests"
+echo "4. Reload UFW"
+echo "5. Disable UFW"
+echo "6. Enable UFW"
+echo "7. Exit"
 echo
 read -p "Enter your selection: " menu_selection
 echo
@@ -151,6 +210,7 @@ echo
 case $menu_selection in
     1)
         # Check UFW status
+        clear
         ufw status
         ;;
     2)
@@ -159,7 +219,35 @@ case $menu_selection in
         perform_firewall_action "$action"
         ;;
     3)
+        # Allow or Deny ICMP echo requests
+        echo
+        echo "Select the action for ICMP echo requests:"
+        echo "1. Allow ICMP echo requests"
+        echo "2. Deny ICMP echo requests"
+        echo "3. Reject ICMP echo requests"
+        echo
+        read -p "Enter your selection: " icmp_action
+        case $icmp_action in
+            1)
+                modify_before_rules "ACCEPT"
+                echo "ICMP echo requests are allowed."
+                ;;
+            2)
+                modify_before_rules "DROP"
+                echo "ICMP echo requests are denied."
+                ;;
+            3)
+                modify_before_rules "REJECT"
+                echo "ICMP echo requests are rejected."
+                ;;
+            *)
+                echo "Invalid selection. Returning back to the menu."
+                ;;
+        esac
+        ;;
+    4)
         # Reload UFW
+        clear
         ufw reload
         reload_status=$?
         if [ $reload_status -eq 0 ]; then
@@ -168,8 +256,9 @@ case $menu_selection in
             echo "Failed to reload UFW. Please check the UFW configuration."
         fi
         ;;
-    4)
+    5)
         # Disable UFW
+        clear
         ufw disable
         disable_status=$?
         if [ $disable_status -eq 0 ]; then
@@ -178,8 +267,9 @@ case $menu_selection in
             echo "Failed to disable UFW. Please check the UFW configuration."
         fi
         ;;
-    5)
+    6)
         # Enable UFW
+        clear
         ufw enable
         enable_status=$?
         if [ $enable_status -eq 0 ]; then
@@ -188,15 +278,13 @@ case $menu_selection in
             echo "Failed to enable UFW. Please check the UFW configuration."
         fi
         ;;
-    6)
-        # Exit the script
+    7)
+        # Exit
+        echo "Exiting the script."
         exit 0
         ;;
     *)
-        if [ "$menu_selection" != "5" ]; then
-            echo "Invalid action. Returning back to the menu."
-            return
-        fi
+        echo "Invalid selection. Returning back to the menu."
         ;;
 esac
 
@@ -205,15 +293,18 @@ echo
 read -p "Do you want to perform another action? (y/n): " perform_again
 
 while [ "$perform_again" = "y" ]; do
+    #clear the screen
+    clear
     echo
     echo "Selection Menu:"
     echo
     echo "1. Check the status of UFW"
     echo "2. Modify firewall rules"
-    echo "3. Reload UFW"
-    echo "4. Disable UFW"
-    echo "5. Enable UFW"
-    echo "6. Exit"
+    echo "3. Allow or Deny ICMP echo requests"
+    echo "4. Reload UFW"
+    echo "5. Disable UFW"
+    echo "6. Enable UFW"
+    echo "7. Exit"
     echo
     read -p "Enter your selection: " menu_selection
 
@@ -224,11 +315,37 @@ while [ "$perform_again" = "y" ]; do
             ;;
         2)
             # Prompt for action to perform
-            echo
             read -p "Do you want to add a rule, delete a rule, or list the existing rules? (add/delete/list): " action
             perform_firewall_action "$action"
             ;;
         3)
+            # Allow or Deny ICMP echo requests
+            echo
+            echo "Select the action for ICMP echo requests:"
+            echo "1. Allow ICMP echo requests"
+            echo "2. Deny ICMP echo requests"
+            echo "3. Reject ICMP echo requests"
+            echo
+            read -p "Enter your selection: " icmp_action
+            case $icmp_action in
+                1)
+                    modify_before_rules "ACCEPT"
+                    echo "ICMP echo requests are allowed."
+                    ;;
+                2)
+                    modify_before_rules "DROP"
+                    echo "ICMP echo requests are denied."
+                    ;;
+                3)
+                    modify_before_rules "REJECT"
+                    echo "ICMP echo requests are rejected."
+                    ;;
+                *)
+                    echo "Invalid selection. Returning back to the menu."
+                    ;;
+            esac
+            ;;
+        4)
             # Reload UFW
             ufw reload
             reload_status=$?
@@ -238,7 +355,7 @@ while [ "$perform_again" = "y" ]; do
                 echo "Failed to reload UFW. Please check the UFW configuration."
             fi
             ;;
-        4)
+        5)
             # Disable UFW
             ufw disable
             disable_status=$?
@@ -248,7 +365,7 @@ while [ "$perform_again" = "y" ]; do
                 echo "Failed to disable UFW. Please check the UFW configuration."
             fi
             ;;
-        5)
+        6)
             # Enable UFW
             ufw enable
             enable_status=$?
@@ -258,15 +375,14 @@ while [ "$perform_again" = "y" ]; do
                 echo "Failed to enable UFW. Please check the UFW configuration."
             fi
             ;;
-        6)
-            # Exit the script
+        7)
+            # Exit
+            echo "Exiting the script."
             exit 0
             ;;
         *)
-            if [ "$menu_selection" != "5" ]; then
-                echo "Invalid action. Returning back to the menu."
-                return
-            fi
+            echo "Invalid action. Returning back to the menu."
+            return
             ;;
     esac
 
