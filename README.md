@@ -22,7 +22,11 @@ To use this script, follow the steps below:
 
 Run the script sudo/root privs:
 
-`sudo ./modify-ufw-firewall.sh`
+`sudo ./modify-ufw-firewall.sh` 
+
+or
+
+`sudo ./modify-ufw-firewall.sh -h or --help`  for additional options
 
 ## Follow the prompts and provide the required information to build your custom firewall rule.
 
