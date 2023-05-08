@@ -9,6 +9,22 @@ if [[ $(id -u) -ne 0 ]]; then
   exit 1
 fi
 
+# Function to display help message
+display_help() {
+    echo "Usage: $0 [OPTIONS]"
+    echo
+    echo "OPTIONS:"
+    echo "  -a, --add     Add a firewall rule."
+    echo "  -d, --del     Delete a firewall rule."
+    echo "  -e, --enable  Enable UFW."
+    echo "  -h, --help    Show help message."
+    echo "  -i, --icmp    Modify ICMP rules."
+    echo "  -l, --list    Show UFW status and rules."
+    echo "  -r, --reload  Reload UFW."
+    echo "  -s, --stop    Disable UFW."
+    echo
+}
+
 modify_before_rules() {
     action=$1
     backup_file_path="/etc/ufw/before.rules.bak"
@@ -46,7 +62,7 @@ perform_firewall_action() {
         fi
 
         echo
-        read -p "Enter the destination port ('any' for all ports): " destination_port
+        read -p "Enter the destination port: " destination_port
         if [ "$destination_port" = "any" ]; then
             destination_port="any"
         else
@@ -139,6 +155,119 @@ perform_firewall_action() {
     fi
 }
 
+# Function to enable UFW
+enable_ufw() {
+    ufw enable
+    enable_status=$?
+    if [ $enable_status -eq 0 ]; then
+        echo "UFW enabled successfully!"
+        return 0
+    else
+        echo "Failed to enable UFW. Please check the UFW configuration."
+        return 1
+    fi
+}
+
+# Function to disable UFW
+disable_ufw() {
+    ufw disable
+    disable_status=$?
+    if [ $disable_status -eq 0 ]; then
+        echo "UFW disabled successfully!"
+        return 0
+    else
+        echo "Failed to disable UFW. Please check the UFW configuration."
+        return 1
+    fi
+}
+
+#Function to reload UFW
+reload_ufw() {
+    ufw reload
+    reload_status=$?
+    if [ $reload_status -eq 0 ]; then
+        echo "UFW reloaded successfully!"
+        return 0
+    else
+        echo "Failed to reload UFW. Please check the UFW configuration."
+        return 1
+    fi
+}
+
+# Function to parse command line arguments
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        key="$1"
+
+        case $key in
+            -a|--add)
+                perform_firewall_action "add" "$2"
+                shift
+                shift
+                ;;
+            -d|--del)
+                perform_firewall_action "delete" "$2"
+                shift
+                shift
+                ;;
+            -e|--enable)
+                enable_ufw
+                result=$?
+                if [ $result -eq 0 ]; then
+                    echo "Enable was successful."
+                else
+                    echo "Enable failed."
+                fi
+                shift
+                ;;
+
+            -h|--help)
+                display_help
+                exit 0
+                ;;
+            -i|--icmp)
+                perform_icmp_action
+                shift
+                ;;
+            -l|--list)
+                perform_firewall_action "list"
+                shift
+                ;;
+            -r|--reload)
+                # Reload UFW
+                reload_ufw
+                result=$?
+                if [ $result -eq 0 ]; then
+                    echo "Reload was successful."
+                else
+                    echo "Reload failed."
+                fi
+                shift
+                ;;
+            -s|--stop)
+                disable_ufw
+                result=$?
+                if [ $result -eq 0 ]; then
+                    echo "Disable was successful."
+                else
+                    echo "Disable failed."
+                fi
+                shift
+                ;;
+            *)
+                echo "Invalid option. Run with '-h' or '--help' for help."
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Call parse_arguments to handle command line arguments
+if [ $# -ne 0 ]; then
+    parse_arguments "$@"
+    exit 0
+fi
+
 #Clear the screen
 clear
 
@@ -158,7 +287,7 @@ tput setaf 3
 
 echo "Simplifying the process"
 echo "Author: bdorr1105"
-echo "Version Date: 7 May 2023 (version 1.0.4)"
+echo "Version Date: 8 May 2023 (version 1.1.0)"
 echo
 
 # Reset the font color
