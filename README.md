@@ -3,7 +3,7 @@ This is a script that will allow you to modify ufw firewall. It will ask prompts
 Modify UFW Firewall
 This script allows you to modify the UFW (Uncomplicated Firewall) settings. It prompts you with a series of questions to build a custom firewall rule based on your input. Additionally, it provides a usage section to help you understand how to run the script.
 
-![modify UFW](https://user-images.githubusercontent.com/12386911/236654430-118bb03d-5599-4a71-9571-b187871c50a4.png)
+![modify-ufw](https://user-images.githubusercontent.com/12386911/236729759-d48e3938-a57e-4b87-8533-904232ad198d.png)
 
 ## Usage
 To use this script, follow the steps below:
@@ -42,4 +42,3 @@ Contributions to this project are welcome. If you find any issues or have sugges
 
 ## License
 This script is licensed under the GNU License. Please review the license file for more information.
-
