@@ -158,7 +158,7 @@ tput setaf 3
 
 echo "Simplifying the process"
 echo "Author: bdorr1105"
-echo "Version Date: 5 May 2023"
+echo "Version Date: 7 May 2023 (version 1.0.4)"
 echo
 
 # Reset the font color
